@@ -1,15 +1,16 @@
-// see SignupForm.js for comments
 import { useState } from 'react';
 import { Form, Button, Alert } from 'react-bootstrap';
-
+import { useMutation } from '@apollo/client';
 import { LOGIN_USER } from '../utils/mutations';
 import Auth from '../utils/auth';
-import { useMutation } from '@apollo/client';
 
 const LoginForm = () => {
   const [userFormData, setUserFormData] = useState({ email: '', password: '' });
+  const [validated] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
-  const [loginUser, { error }] = useMutation(LOGIN_USER);
+
+  // Use the LOGIN_USER mutation
+  const [loginUser, { data, error }] = useMutation(LOGIN_USER);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -19,7 +20,6 @@ const LoginForm = () => {
   const handleFormSubmit = async (event) => {
     event.preventDefault();
 
-    // check if form has everything (as per react-bootstrap docs)
     const form = event.currentTarget;
     if (form.checkValidity() === false) {
       event.preventDefault();
@@ -28,11 +28,23 @@ const LoginForm = () => {
 
     try {
       const { data } = await loginUser({
-        variables: {...userFormData},
-      })
+        variables: {
+          email: userFormData.email,
+          password: userFormData.password,
+        },
+      });
+
+      if (!data || error) {
+        throw new Error('Received unsuccessful response from server');
+      }
 
       const { token, user } = data.login;
-      console.log(user);
+
+      if (!token || !user) {
+        throw new Error('Token or user data is missing in the response');
+      }
+
+      console.log('API response:', { token, user });
       Auth.login(token);
     } catch (err) {
       console.error(err);
@@ -40,7 +52,6 @@ const LoginForm = () => {
     }
 
     setUserFormData({
-      username: '',
       email: '',
       password: '',
     });
@@ -48,7 +59,7 @@ const LoginForm = () => {
 
   return (
     <>
-      <Form noValidate onSubmit={handleFormSubmit}>
+      <Form noValidate validated={validated} onSubmit={handleFormSubmit}>
         <Alert dismissible onClose={() => setShowAlert(false)} show={showAlert} variant='danger'>
           Something went wrong with your login credentials!
         </Alert>
